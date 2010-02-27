@@ -6,3 +6,4 @@ CHANGES
 lib/Attribute/Signature.pm
 t/signature.t
 
+META.yml                                 Module meta-data (added by MakeMaker)

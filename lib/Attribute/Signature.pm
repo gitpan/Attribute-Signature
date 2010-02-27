@@ -1,15 +1,18 @@
 package Attribute::Signature;
 
+use 5.006;
 use strict;
-use warnings::register;
+#use warnings::register;
 
 use Carp;
 use Scalar::Util qw ( blessed );
 
-use Data::Dumper;
+#use Data::Dumper;
 use Attribute::Handlers;
+use attributes ();
+#local $^W=0;
 
-our $VERSION    = '1.02';
+our $VERSION    = '1.10';
 my  $SIGNATURES = {};
 
 sub UNIVERSAL::with : ATTR(CODE,INIT) {
@@ -47,40 +50,49 @@ sub UNIVERSAL::with : ATTR(CODE,INIT) {
       if ($attributes->{method}) {
 	croak("invalid number of arguments passed to method $subname");
       } else {
-	croak("invalid number of arguments passed to subroutine $subname");
+	croak("invalid number of arguments passed to subroutine $subname ($count passed, ".scalar(@$data)." required");
       }
     }
 
     my $m = 0;
     print "Comparisons\n" if $::AS_DEBUG;
     print "\tSignature\tValue\n" if $::AS_DEBUG;
+    my @failed;
     while($i <= $count) {
       print "\t$data->[$i]\t\t$_[$i]\n" if $::AS_DEBUG;
       last unless $data->[$i];
+      my $ok=0;
       if (lc($data->[$i]) eq $data->[$i]) {
 	## here we are checking for little types
 	my $type = $data->[$i];
 	if (Attribute::Signature->can( $type )) {
 	  if (Attribute::Signature->$type( $_[$i] )) {
-	    $m++;
+	    $ok++;
 	  }
 	}
-      } elsif ((blessed($_[$i]) || string($_[$i])) && $_[$i]->isa( $data->[$i]) ) {
-	$m++;
+      } elsif ((blessed($_[$i])) && $_[$i]->isa( $data->[$i]) ) {
+      # || string($_[$i])
+	$ok++;
       } elsif (!blessed($_[$i]) && ref($_[$i]) eq $data->[$i]) {
-	$m++;
+	$ok++;
+      }
+      if ($ok) {
+        $m++ ;
+      } else {
+        push @failed,$i;
       }
       $i++;
     }
 
     if ($attributes->{method}) { $m++; }
 
-    print "Out of band:\n\tCount\tMatched\n\t$count\t$m\n" if $::AS_DEBUG;
+    print "Out of band:\n\tCount\tMatched\n\t$count\t$m\n" if defined $::AS_DEBUG && $::AS_DEBUG;
 
     if ($m != $count) {
-      croak("call to $subname does not match signature");
+      croak("call to $subname does not match signature (failed args:".join(',',@failed).")");
     } else {
-      $referent->( @_ );
+      #$referent->( @_ );
+      goto &$referent;
     }
   };
 }
@@ -280,6 +292,8 @@ subs in the Attribute::Signature namespace.
 
 =head1 OTHER FUNCTIONS
 
+=over 4
+
 =item getSignature( string )
 
 C<Attribute::Signature> also allows you to call the getSignature
@@ -287,10 +301,13 @@ method.  The string should be the complete namespace and subroutine.
 This returns the attribute signature and returned values signature for
 the function as two array references.
 
+=back
+
 =head1 AUTHOR
 
 James A. Duncan <jduncan@fotango.com>
 Leon Brocard <leon@fotango.com>
+Alexandr Ciornii (alexchorny AT gmail.com)
 
 =head1 SEE ALSO
 
